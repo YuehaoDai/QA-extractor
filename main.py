@@ -2,10 +2,142 @@
 """QA-Extractor 主程序"""
 import os
 import sys
+import json
+import time
+from datetime import datetime
 from tqdm import tqdm
+import pandas as pd
 from src.config.config_loader import load_config
 from src.processors.file_processor import read_file, save_qa_pairs
 from src.processors.qa_processor import generate_qa_pairs
+from src.utils.text_utils import split_text
+
+class LLMClient:
+    """LLM API客户端"""
+    def __init__(self, config: dict):
+        self.api_url = config['api']['url']
+        self.timeout = config['api'].get('timeout', 30)
+        self.max_retries = config['api'].get('max_retries', 3)
+        
+        # 设置请求头
+        self.headers = {
+            "Content-Type": "application/json"
+        }
+        if 'api_key' in config['api']:
+            self.headers["Authorization"] = f"Bearer {config['api']['api_key']}"
+    
+    def generate_response(self, messages: list) -> tuple:
+        """生成响应
+        
+        Args:
+            messages: 消息列表
+            
+        Returns:
+            tuple: (响应内容, 错误信息)
+        """
+        for attempt in range(self.max_retries):
+            try:
+                # 添加重试延迟
+                if attempt > 0:
+                    delay = min(2 ** attempt, 30)  # 指数退避，最大30秒
+                    print(f"第 {attempt + 1} 次重试，等待 {delay} 秒...")
+                    time.sleep(delay)
+                
+                response = requests.post(
+                    self.api_url,
+                    headers=self.headers,
+                    json={"messages": messages},
+                    timeout=self.timeout
+                )
+                
+                # 处理不同的HTTP状态码
+                if response.status_code == 200:
+                    result = response.json()
+                    return result['response'], None
+                elif response.status_code == 502:
+                    error_msg = f"服务器暂时不可用 (502)，正在进行第 {attempt + 1} 次重试"
+                    print(error_msg)
+                    if attempt < self.max_retries - 1:
+                        continue
+                    return None, error_msg
+                elif response.status_code == 429:
+                    error_msg = f"请求频率限制 (429)，正在进行第 {attempt + 1} 次重试"
+                    print(error_msg)
+                    if attempt < self.max_retries - 1:
+                        continue
+                    return None, error_msg
+                elif response.status_code == 503:
+                    error_msg = f"服务暂时不可用 (503)，正在进行第 {attempt + 1} 次重试"
+                    print(error_msg)
+                    if attempt < self.max_retries - 1:
+                        continue
+                    return None, error_msg
+                else:
+                    error_msg = f"API请求失败: HTTP {response.status_code} - {response.text}"
+                    if attempt < self.max_retries - 1:
+                        continue
+                    return None, error_msg
+                    
+            except requests.Timeout:
+                error_msg = f"请求超时，正在进行第 {attempt + 1} 次重试"
+                print(error_msg)
+                if attempt < self.max_retries - 1:
+                    continue
+                return None, error_msg
+            except requests.ConnectionError:
+                error_msg = f"连接错误，正在进行第 {attempt + 1} 次重试"
+                print(error_msg)
+                if attempt < self.max_retries - 1:
+                    continue
+                return None, error_msg
+            except Exception as e:
+                error_msg = f"请求出错: {str(e)}，正在进行第 {attempt + 1} 次重试"
+                print(error_msg)
+                if attempt < self.max_retries - 1:
+                    continue
+                return None, error_msg
+        
+        return None, f"达到最大重试次数 ({self.max_retries})"
+
+def save_failed_tasks(failed_files: list, output_dir: str):
+    """保存失败任务清单到Markdown文件
+    
+    Args:
+        failed_files: 失败文件列表，每个元素为 (文件路径, 错误信息, 模型响应)
+        output_dir: 输出目录
+    """
+    if not failed_files:
+        return
+    
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    failed_tasks_file = os.path.join(output_dir, f"failed_tasks_{timestamp}.md")
+    
+    with open(failed_tasks_file, 'w', encoding='utf-8') as f:
+        f.write("# 失败任务清单\n\n")
+        f.write(f"生成时间: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n\n")
+        f.write("## 失败文件列表\n\n")
+        
+        for file_path, error, model_response in failed_files:
+            f.write(f"### {os.path.basename(file_path)}\n\n")
+            f.write(f"- 文件路径: `{file_path}`\n")
+            f.write(f"- 错误信息: {error}\n")
+            if model_response:
+                f.write("\n#### 模型返回内容\n\n")
+                f.write("```\n")
+                f.write(model_response)
+                f.write("\n```\n\n")
+        
+        f.write("## 失败原因统计\n\n")
+        # 统计错误类型
+        error_types = {}
+        for _, error, _ in failed_files:
+            error_type = error.split(':')[0] if ':' in error else error
+            error_types[error_type] = error_types.get(error_type, 0) + 1
+        
+        for error_type, count in error_types.items():
+            f.write(f"- {error_type}: {count}个文件\n")
+    
+    print(f"\n失败任务清单已保存到: {failed_tasks_file}")
 
 def process_files(input_dir: str, output_dir: str, api_url: str) -> None:
     """处理目录中的所有文件
@@ -29,7 +161,11 @@ def process_files(input_dir: str, output_dir: str, api_url: str) -> None:
         print(f"在 {input_dir} 中没有找到支持的文件")
         return
     
+    # 创建LLM客户端
+    llm_client = LLMClient({'api': {'url': api_url}})
+    
     # 处理每个文件
+    failed_files = []
     for file_path in tqdm(files, desc="处理文件"):
         try:
             # 读取文件
@@ -45,16 +181,50 @@ def process_files(input_dir: str, output_dir: str, api_url: str) -> None:
             for i, chunk in enumerate(tqdm(split_text(text), desc=f"处理 {os.path.basename(file_path)} 的文本块", leave=False)):
                 # 为最后一个块分配剩余的问题
                 current_questions = questions_per_chunk + (1 if i == total_chunks - 1 and remainder > 0 else 0)
-                chunk_qa_pairs = generate_qa_pairs(chunk, api_url, current_questions)
-                qa_pairs.extend(chunk_qa_pairs)
+                
+                # 构建消息
+                messages = [
+                    {"role": "system", "content": f"""你是一个专业的文档分析助手。你的任务是：
+                    1. 仔细阅读提供的文档内容
+                    2. 提出{current_questions}个与文档内容相关的重要问题
+                    3. 对每个问题，从文档中提取相关信息作为答案
+                    4. 确保问题和答案都是清晰、准确且相关的
+                    5. 以JSON格式返回结果，格式为：[{{"question": "问题1", "answer": "答案1"}}, ...]
+                    6. 只返回JSON格式的数据，不要包含任何其他内容"""},
+                    {"role": "user", "content": f"请分析以下文档内容并生成问答对：\n\n{chunk}"}
+                ]
+                
+                # 调用API
+                response, error = llm_client.generate_response(messages)
+                if error:
+                    print(f"\n处理文件 {file_path} 的第 {i+1} 个文本块时出错: {error}")
+                    failed_files.append((file_path, error, response))
+                    continue
+                
+                try:
+                    # 解析返回的JSON
+                    chunk_qa_pairs = json.loads(response)
+                    qa_pairs.extend(chunk_qa_pairs)
+                except json.JSONDecodeError as e:
+                    print(f"\n解析JSON时出错: {str(e)}")
+                    failed_files.append((file_path, f"JSON解析错误: {str(e)}", response))
+                    continue
             
-            # 保存结果
-            output_file = os.path.join(output_dir, f"{os.path.splitext(os.path.basename(file_path))[0]}_qa.csv")
-            save_qa_pairs(qa_pairs, output_file)
+            if qa_pairs:
+                # 保存结果
+                output_file = os.path.join(output_dir, f"{os.path.splitext(os.path.basename(file_path))[0]}_qa.csv")
+                save_qa_pairs(qa_pairs, output_file)
+            else:
+                failed_files.append((file_path, "未能生成任何问答对", None))
             
         except Exception as e:
             print(f"处理文件 {file_path} 时出错: {str(e)}")
+            failed_files.append((file_path, str(e), None))
             continue
+    
+    # 保存失败任务清单
+    if failed_files:
+        save_failed_tasks(failed_files, output_dir)
 
 def main():
     """主函数"""

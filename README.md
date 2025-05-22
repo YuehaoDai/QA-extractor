@@ -1,6 +1,6 @@
 # QA-Extractor
 
-QA-Extractor 是一个强大的文档问答对生成工具，它能够从各种格式的文档中自动提取关键信息并生成高质量的问答对。该工具使用大语言模型（LLM）来理解文档内容并生成相关的问答对。
+QA-Extractor是一个强大的文档问答对生成工具，能够从各种格式的文档中自动生成高质量的问答对。
 
 ## 功能特点
 
@@ -11,43 +11,38 @@ QA-Extractor 是一个强大的文档问答对生成工具，它能够从各种�
   - Excel文件 (.xls, .xlsx)
 - 自动文本分块处理
 - 智能问答对生成
-- 批量处理多个文件
-- 进度条显示处理进度
-- 自动清理Excel不兼容字符
-- 详细的错误处理和日志记录
+- 批量处理功能
+- 进度显示
+- 错误处理和重试机制
+- 失败任务记录
 
 ## 项目结构
 
 ```
-QA-Extractor/
+qa_extraction/
 ├── main.py                 # 主程序入口
 ├── config.yaml            # 配置文件
-├── requirements.txt       # 项目依赖
-├── README.md             # 项目文档
-├── LICENSE               # MIT许可证
-├── .gitignore           # Git忽略配置
-├── input/               # 输入文件目录（需要创建）
-├── output/              # 输出文件目录（自动创建）
-└── src/                 # 源代码目录
+├── requirements.txt       # 依赖包列表
+└── src/                  # 源代码目录
     ├── __init__.py
-    ├── config/          # 配置相关
+    ├── config/           # 配置相关
     │   ├── __init__.py
-    │   └── config_loader.py  # 配置加载模块
-    ├── processors/      # 处理器模块
+    │   └── config_loader.py
+    ├── processors/       # 处理器
     │   ├── __init__.py
-    │   ├── file_processor.py  # 文件处理模块
-    │   └── qa_processor.py    # 问答处理模块
+    │   ├── file_processor.py
+    │   └── qa_processor.py
     └── utils/           # 工具函数
         ├── __init__.py
-        └── text_utils.py      # 文本处理工具
+        └── text_utils.py
 ```
 
 ## 安装
 
 1. 克隆仓库：
 ```bash
-git clone https://github.com/yourusername/qa-extractor.git
-cd qa-extractor
+git clone https://github.com/yourusername/qa_extraction.git
+cd qa_extraction
 ```
 
 2. 安装依赖：
@@ -57,58 +52,71 @@ pip install -r requirements.txt
 
 ## 配置
 
-1. 创建配置文件 `config.yaml`：
-```yaml
-api:
-  url: "http://your-api-endpoint"  # 替换为实际的API地址
+在`config.yaml`中配置以下参数：
 
+```yaml
 paths:
   input_dir: "input"    # 输入文件目录
   output_dir: "output"  # 输出文件目录
-```
 
-2. 创建输入目录：
-```bash
-mkdir input
+api:
+  url: "http://your-api-url"  # API地址
+  timeout: 30                 # 请求超时时间（秒）
+  max_retries: 3             # 最大重试次数
+  api_key: "your-api-key"    # API密钥（可选）
 ```
 
 ## 使用方法
 
-1. 将需要处理的文档放入 `input` 目录
-
+1. 将需要处理的文档放入`input`目录
 2. 运行程序：
 ```bash
 python main.py
 ```
 
-3. 处理完成后，问答对将保存在 `output` 目录中，每个输入文件对应一个CSV文件
+3. 程序会自动处理所有支持的文件，并在`output`目录生成结果
 
 ## 输出格式
 
-程序会为每个输入文件生成一个对应的CSV文件，包含以下列：
-- question: 生成的问题
-- answer: 对应的答案
+- 每个输入文件会生成一个对应的CSV文件，包含以下列：
+  - question: 生成的问题
+  - answer: 对应的答案
+
+- 如果处理过程中出现错误，会生成一个失败任务清单（Markdown格式），包含：
+  - 失败文件列表
+  - 错误信息
+  - 失败原因统计
+
+## 依赖包
+
+- pandas: 数据处理
+- python-docx: Word文档处理
+- PyPDF2: PDF文件处理
+- xlrd: Excel文件处理
+- tqdm: 进度显示
+- requests: API请求
+- tiktoken: Token计算
+- pyyaml: 配置文件处理
 
 ## 注意事项
 
-- 确保API地址配置正确
-- 输入文件必须是支持的格式之一
-- 每个文档最多生成10个问答对
-- 大文件会自动分块处理
-- 输出文件使用UTF-8编码，支持Excel打开
+1. 确保输入目录存在并包含支持的文件
+2. 确保有足够的磁盘空间存储输出文件
+3. 对于大文件，处理时间可能较长
+4. 建议定期检查失败任务清单，及时处理失败的文件
 
-## 依赖项
+## 错误处理
 
-- pandas>=1.5.0
-- python-docx>=0.8.11
-- PyPDF2>=3.0.0
-- xlrd>=2.0.1
-- openpyxl>=3.1.0
-- tiktoken>=0.5.0
-- tqdm>=4.65.0
-- pyyaml>=6.0
-- requests>=2.31.0
+程序包含完善的错误处理机制：
+- API请求失败自动重试
+- 文件读取错误记录
+- JSON解析错误处理
+- 详细的错误日志
+
+## 贡献
+
+欢迎提交Issue和Pull Request！
 
 ## 许可证
 
-本项目采用 MIT 许可证 - 详见 [LICENSE](LICENSE) 文件 
+MIT License 
