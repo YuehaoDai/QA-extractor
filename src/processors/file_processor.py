@@ -90,7 +90,7 @@ def read_file(file_path: str) -> str:
     """
     file_ext = os.path.splitext(file_path)[1].lower()
     
-    if file_ext == '.txt':
+    if file_ext in ['.txt', '.md']:  # 同时支持.txt和.md文件
         return read_text_file(file_path)
     elif file_ext == '.docx':
         return read_docx_file(file_path)
