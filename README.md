@@ -6,6 +6,7 @@ QA-Extractor是一个强大的文档问答对生成工具，能够从各种格�
 
 - 支持多种文档格式：
   - 文本文件 (.txt)
+  - Markdown文件 (.md)
   - Word文档 (.docx)
   - PDF文件 (.pdf)
   - Excel文件 (.xls, .xlsx)
@@ -71,6 +72,7 @@ paths:
 processing:
   supported_extensions:    # 支持的文件类型
     - .txt
+    - .md
     - .docx
     - .pdf
     - .xlsx
