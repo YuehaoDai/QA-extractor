@@ -1,0 +1,28 @@
+# LLM API配置
+llm:
+  api_url: "http://localhost:11434/v1/chat/completions"  # API地址
+  model_name: "deepseek-r1:latest"  # 模型名称
+  api_key: ""  # API密钥（如果需要）
+  timeout: 3000  # 请求超时时间（秒）增加到3000秒
+  max_retries: 5  # 最大重试次数增加到5次
+  temperature: 0.7  # 温度参数
+
+# 文件路径配置
+paths:
+  input_dir: "file"  # 输入文档目录
+  output_dir: "output"     # 输出目录
+
+# 文件处理配置
+processing:
+  supported_extensions:    # 支持的文件类型
+    - .md
+    - .docx
+    - .doc
+    - .pdf
+    - .xlsx
+    - .xls
+
+# 输出配置
+output:
+  csv_filename_template: "qa_pairs_{timestamp}.csv"  # CSV文件名模板
+  excel_filename_template: "qa_pairs_{timestamp}.xlsx"  # Excel文件名模板 
