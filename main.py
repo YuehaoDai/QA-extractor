@@ -165,13 +165,14 @@ def save_failed_tasks(failed_files: list, output_dir: str):
     print(f"- Markdown文件: {failed_tasks_md}")
     print(f"- Excel文件: {failed_tasks_excel}")
 
-def process_files(input_dir: str, output_dir: str, api_url: str) -> None:
+def process_files(input_dir: str, output_dir: str, api_url: str, config: dict) -> None:
     """处理目录中的所有文件
     
     Args:
         input_dir: 输入目录
         output_dir: 输出目录
         api_url: API地址
+        config: 配置信息
     """
     # 确保输出目录存在
     os.makedirs(output_dir, exist_ok=True)
@@ -180,7 +181,7 @@ def process_files(input_dir: str, output_dir: str, api_url: str) -> None:
     files = []
     for root, _, filenames in os.walk(input_dir):
         for filename in filenames:
-            if filename.endswith(('.txt', '.docx', '.pdf', '.xls', '.xlsx')):
+            if filename.endswith(tuple(config['processing']['supported_extensions'])):
                 files.append(os.path.join(root, filename))
     
     if not files:
@@ -209,15 +210,12 @@ def process_files(input_dir: str, output_dir: str, api_url: str) -> None:
                 current_questions = questions_per_chunk + (1 if i == total_chunks - 1 and remainder > 0 else 0)
                 
                 # 构建消息
+                system_prompt = config['prompts']['system_prompt_template'].format(questions_count=current_questions)
+                user_prompt = config['prompts']['user_prompt_template'].format(text=chunk)
+                
                 messages = [
-                    {"role": "system", "content": f"""你是一个专业的文档分析助手。你的任务是：
-                    1. 仔细阅读提供的文档内容
-                    2. 提出{current_questions}个与文档内容相关的重要问题
-                    3. 对每个问题，从文档中提取相关信息作为答案
-                    4. 确保问题和答案都是清晰、准确且相关的
-                    5. 以JSON格式返回结果，格式为：[{{"question": "问题1", "answer": "答案1"}}, ...]
-                    6. 只返回JSON格式的数据，不要包含任何其他内容"""},
-                    {"role": "user", "content": f"请分析以下文档内容并生成问答对：\n\n{chunk}"}
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_prompt}
                 ]
                 
                 # 调用API
@@ -261,10 +259,10 @@ def main():
         # 获取配置
         input_dir = config['paths']['input_dir']
         output_dir = config['paths']['output_dir']
-        api_url = config['api']['url']
+        api_url = config['llm']['api_url']
         
         # 处理文件
-        process_files(input_dir, output_dir, api_url)
+        process_files(input_dir, output_dir, api_url, config)
         
     except Exception as e:
         print(f"程序执行出错: {str(e)}")

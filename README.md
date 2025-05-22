@@ -55,15 +55,43 @@ pip install -r requirements.txt
 在`config.yaml`中配置以下参数：
 
 ```yaml
+# LLM API配置
+llm:
+  api_url: "http://your-api-url"  # API地址
+  timeout: 30                 # 请求超时时间（秒）
+  max_retries: 3             # 最大重试次数
+  api_key: "your-api-key"    # API密钥（可选）
+
+# 文件路径配置
 paths:
   input_dir: "input"    # 输入文件目录
   output_dir: "output"  # 输出文件目录
 
-api:
-  url: "http://your-api-url"  # API地址
-  timeout: 30                 # 请求超时时间（秒）
-  max_retries: 3             # 最大重试次数
-  api_key: "your-api-key"    # API密钥（可选）
+# 文件处理配置
+processing:
+  supported_extensions:    # 支持的文件类型
+    - .txt
+    - .docx
+    - .pdf
+    - .xlsx
+    - .xls
+
+# 输出配置
+output:
+  csv_filename_template: "qa_pairs_{timestamp}.csv"  # CSV文件名模板
+  excel_filename_template: "qa_pairs_{timestamp}.xlsx"  # Excel文件名模板
+
+# 提示词配置
+prompts:
+  system_prompt_template: |
+    你是一个专业的文档分析助手。你的任务是：
+    1. 仔细阅读提供的文档内容
+    2. 提出{questions_count}个与文档内容相关的重要问题
+    3. 对每个问题，从文档中提取相关信息作为答案
+    4. 确保问题和答案都是清晰、准确且相关的
+    5. 以JSON格式返回结果，格式为：[{{"question": "问题1", "answer": "答案1"}}, ...]
+    6. 只返回JSON格式的数据，不要包含任何其他内容
+  user_prompt_template: "请分析以下文档内容并生成问答对：\n\n{text}"
 ```
 
 ## 使用方法
