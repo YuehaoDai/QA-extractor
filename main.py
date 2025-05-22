@@ -100,7 +100,7 @@ class LLMClient:
         return None, f"达到最大重试次数 ({self.max_retries})"
 
 def save_failed_tasks(failed_files: list, output_dir: str):
-    """保存失败任务清单到Markdown文件
+    """保存失败任务清单到Markdown文件和Excel表格
     
     Args:
         failed_files: 失败文件列表，每个元素为 (文件路径, 错误信息, 模型响应)
@@ -110,9 +110,11 @@ def save_failed_tasks(failed_files: list, output_dir: str):
         return
     
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    failed_tasks_file = os.path.join(output_dir, f"failed_tasks_{timestamp}.md")
+    failed_tasks_md = os.path.join(output_dir, f"failed_tasks_{timestamp}.md")
+    failed_tasks_excel = os.path.join(output_dir, f"failed_tasks_{timestamp}.xlsx")
     
-    with open(failed_tasks_file, 'w', encoding='utf-8') as f:
+    # 保存为Markdown文件
+    with open(failed_tasks_md, 'w', encoding='utf-8') as f:
         f.write("# 失败任务清单\n\n")
         f.write(f"生成时间: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n\n")
         f.write("## 失败文件列表\n\n")
@@ -137,7 +139,31 @@ def save_failed_tasks(failed_files: list, output_dir: str):
         for error_type, count in error_types.items():
             f.write(f"- {error_type}: {count}个文件\n")
     
-    print(f"\n失败任务清单已保存到: {failed_tasks_file}")
+    # 保存为Excel文件
+    df = pd.DataFrame([
+        {
+            '文件名': os.path.basename(file_path),
+            '文件路径': file_path,
+            '错误信息': error,
+            '模型响应': model_response if model_response else ''
+        }
+        for file_path, error, model_response in failed_files
+    ])
+    
+    # 添加错误类型统计sheet
+    error_stats = pd.DataFrame([
+        {'错误类型': error_type, '数量': count}
+        for error_type, count in error_types.items()
+    ])
+    
+    # 保存到Excel，包含两个sheet
+    with pd.ExcelWriter(failed_tasks_excel, engine='openpyxl') as writer:
+        df.to_excel(writer, sheet_name='失败文件列表', index=False)
+        error_stats.to_excel(writer, sheet_name='错误统计', index=False)
+    
+    print(f"\n失败任务清单已保存到:")
+    print(f"- Markdown文件: {failed_tasks_md}")
+    print(f"- Excel文件: {failed_tasks_excel}")
 
 def process_files(input_dir: str, output_dir: str, api_url: str) -> None:
     """处理目录中的所有文件
