@@ -200,8 +200,9 @@ def process_files(input_dir: str, output_dir: str, api_url: str, config: dict) -
             
             # 计算每个块的问题数量
             total_chunks = len(split_text(text))
-            questions_per_chunk = 10 // total_chunks
-            remainder = 10 % total_chunks
+            questions_per_file = config['processing']['questions_per_file']
+            questions_per_chunk = questions_per_file // total_chunks
+            remainder = questions_per_file % total_chunks
             
             # 生成问答对
             qa_pairs = []

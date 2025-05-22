@@ -21,6 +21,7 @@ processing:
     - .pdf
     - .xlsx
     - .xls
+  questions_per_file: 10   # 每个文件生成的问题总数
 
 # 输出配置
 output:
