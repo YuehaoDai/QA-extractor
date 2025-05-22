@@ -4,6 +4,7 @@ import os
 import sys
 import json
 import time
+import requests
 from datetime import datetime
 from tqdm import tqdm
 import pandas as pd
