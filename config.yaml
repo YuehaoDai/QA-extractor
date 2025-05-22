@@ -17,7 +17,6 @@ processing:
   supported_extensions:    # 支持的文件类型
     - .md
     - .docx
-    - .doc
     - .pdf
     - .xlsx
     - .xls
