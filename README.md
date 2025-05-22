@@ -78,6 +78,9 @@ processing:
     - .xlsx
     - .xls
   questions_per_file: 10   # 每个文件生成的问题总数
+  text_chunking:          # 文本分块配置
+    max_tokens: 2000      # 每个文本块的最大token数
+    overlap_tokens: 200   # 文本块之间的重叠token数
 
 # 输出配置
 output:
@@ -96,6 +99,27 @@ prompts:
     6. 只返回JSON格式的数据，不要包含任何其他内容
   user_prompt_template: "请分析以下文档内容并生成问答对：\n\n{text}"
 ```
+
+## 配置说明
+
+### 文本分块配置
+
+文本分块配置用于控制文档内容的切分方式，这对于处理长文档特别重要：
+
+1. `max_tokens`：每个文本块的最大token数
+   - 建议值：模型最大上下文长度的1/4到1/3
+   - 例如：对于GPT-3.5（上下文长度4096），建议设置为1000-1500
+   - 对于8k上下文的模型，可以设置为2000-3000
+
+2. `overlap_tokens`：文本块之间的重叠token数
+   - 建议值：max_tokens的5%-15%
+   - 例如：如果max_tokens为2000，则overlap_tokens建议设置为100-300
+
+配置建议：
+- 较小的max_tokens可以生成更具体的问题，但可能丢失上下文
+- 较大的max_tokens可以保持更多上下文，但可能导致问题过于宽泛
+- overlap_tokens越大，上下文连贯性越好，但处理时间会增加
+- 建议根据实际文档内容和使用的模型能力来调整这些参数
 
 ## 使用方法
 

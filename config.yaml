@@ -21,6 +21,21 @@ processing:
     - .xlsx
     - .xls
   questions_per_file: 10   # 每个文件生成的问题总数
+  text_chunking:          # 文本分块配置
+    max_tokens: 2000      # 每个文本块的最大token数
+    overlap_tokens: 200   # 文本块之间的重叠token数
+    # 配置说明：
+    # 1. max_tokens建议值计算：
+    #    - 对于GPT-3.5/4模型：建议设置为模型最大上下文长度的1/4到1/3
+    #    - 例如：GPT-3.5的上下文长度为4096，则max_tokens建议设置为1000-1500
+    #    - 当前设置为2000，适用于上下文长度为8k的模型
+    # 2. overlap_tokens建议值计算：
+    #    - 建议设置为max_tokens的5%-15%
+    #    - 当前设置为200，约为max_tokens的10%
+    # 3. 注意事项：
+    #    - 较大的max_tokens可能导致生成的问题不够具体
+    #    - 较大的overlap_tokens可以保持上下文连贯性，但会增加处理时间
+    #    - 建议根据实际文档内容和模型能力调整这些参数
 
 # 输出配置
 output:
