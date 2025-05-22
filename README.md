@@ -1,48 +1,34 @@
 # QA-Extractor
 
-QA-Extractor是一个强大的文档问答对生成工具，能够从各种格式的文档中自动生成高质量的问答对。
+QA-Extractor 是一个基于大语言模型的文档问答对提取工具，能够自动从各类文档中提取高质量的问答对。
 
-## 功能特点
+## 功能特性
 
-- 支持多种文档格式：
-  - 文本文件 (.txt)
-  - Markdown文件 (.md)
-  - Word文档 (.docx)
-  - PDF文件 (.pdf)
-  - Excel文件 (.xls, .xlsx)
-- 自动文本分块处理
-- 智能问答对生成
-- 批量处理功能
-- 进度显示
-- 错误处理和重试机制
-- 失败任务记录（支持Markdown和Excel格式）
+- 支持多种文档格式（PDF、Word、Markdown等）
+- 自动分块处理长文本
+- 智能生成问答对
+- 支持批量处理多个文件
+- 自动重试和错误处理
+- 生成详细的失败任务报告
+- 支持自定义配置
 
-## 项目结构
+## 系统要求
 
-```
-qa_extraction/
-├── main.py                 # 主程序入口
-├── config.yaml            # 配置文件
-├── requirements.txt       # 依赖包列表
-└── src/                  # 源代码目录
-    ├── __init__.py
-    ├── config/           # 配置相关
-    │   ├── __init__.py
-    │   └── config_loader.py
-    ├── processors/       # 处理器
-    │   ├── __init__.py
-    │   ├── file_processor.py
-    │   └── qa_processor.py
-    └── utils/           # 工具函数
-        ├── __init__.py
-        └── text_utils.py
-```
+- Python 3.8+
+- 依赖包：
+  - pandas
+  - tqdm
+  - requests
+  - openpyxl
+  - python-docx
+  - PyPDF2
+  - markdown
 
-## 安装
+## 安装步骤
 
 1. 克隆仓库：
 ```bash
-git clone https://github.com/yourusername/qa_extraction.git
+git clone [repository_url]
 cd qa_extraction
 ```
 
@@ -51,130 +37,77 @@ cd qa_extraction
 pip install -r requirements.txt
 ```
 
-## 配置
-
-在`config.yaml`中配置以下参数：
-
-```yaml
-# LLM API配置
-llm:
-  api_url: "http://your-api-url"  # API地址
-  timeout: 30                 # 请求超时时间（秒）
-  max_retries: 3             # 最大重试次数
-  api_key: "your-api-key"    # API密钥（可选）
-
-# 文件路径配置
-paths:
-  input_dir: "input"    # 输入文件目录
-  output_dir: "output"  # 输出文件目录
-
-# 文件处理配置
-processing:
-  supported_extensions:    # 支持的文件类型
-    - .txt
-    - .md
-    - .docx
-    - .pdf
-    - .xlsx
-    - .xls
-  questions_per_file: 10   # 每个文件生成的问题总数
-  text_chunking:          # 文本分块配置
-    max_tokens: 2000      # 每个文本块的最大token数
-    overlap_tokens: 200   # 文本块之间的重叠token数
-
-# 输出配置
-output:
-  csv_filename_template: "qa_pairs_{timestamp}.csv"  # CSV文件名模板
-  excel_filename_template: "qa_pairs_{timestamp}.xlsx"  # Excel文件名模板
-
-# 提示词配置
-prompts:
-  system_prompt_template: |
-    你是一个专业的文档分析助手。你的任务是：
-    1. 仔细阅读提供的文档内容
-    2. 提出{questions_count}个与文档内容相关的重要问题
-    3. 对每个问题，从文档中提取相关信息作为答案
-    4. 确保问题和答案都是清晰、准确且相关的
-    5. 以JSON格式返回结果，格式为：[{{"question": "问题1", "answer": "答案1"}}, ...]
-    6. 只返回JSON格式的数据，不要包含任何其他内容
-  user_prompt_template: "请分析以下文档内容并生成问答对：\n\n{text}"
-```
-
-## 配置说明
-
-### 文本分块配置
-
-文本分块配置用于控制文档内容的切分方式，这对于处理长文档特别重要：
-
-1. `max_tokens`：每个文本块的最大token数
-   - 建议值：模型最大上下文长度的1/4到1/3
-   - 例如：对于GPT-3.5（上下文长度4096），建议设置为1000-1500
-   - 对于8k上下文的模型，可以设置为2000-3000
-
-2. `overlap_tokens`：文本块之间的重叠token数
-   - 建议值：max_tokens的5%-15%
-   - 例如：如果max_tokens为2000，则overlap_tokens建议设置为100-300
-
-配置建议：
-- 较小的max_tokens可以生成更具体的问题，但可能丢失上下文
-- 较大的max_tokens可以保持更多上下文，但可能导致问题过于宽泛
-- overlap_tokens越大，上下文连贯性越好，但处理时间会增加
-- 建议根据实际文档内容和使用的模型能力来调整这些参数
+3. 配置：
+   - 复制 `config/config.yaml.example` 为 `config/config.yaml`
+   - 修改配置文件中的相关参数
 
 ## 使用方法
 
-1. 将需要处理的文档放入`input`目录
+1. 准备输入文件：
+   - 将需要处理的文档放入 `input` 目录
+   - 支持的文件格式：PDF、Word、Markdown等
+
 2. 运行程序：
 ```bash
 python main.py
 ```
 
-3. 程序会自动处理所有支持的文件，并在`output`目录生成结果
+3. 查看结果：
+   - 生成的问答对将保存在 `output` 目录
+   - 失败的任务将生成详细的报告（Markdown和Excel格式）
 
-## 输出格式
+## 配置说明
 
-- 每个输入文件会生成一个对应的CSV文件，包含以下列：
-  - question: 生成的问题
-  - answer: 对应的答案
+配置文件 `config/config.yaml` 包含以下主要部分：
 
-- 如果处理过程中出现错误，会生成失败任务清单：
-  - Markdown格式（.md）：包含详细的失败信息、错误统计和模型响应
-  - Excel格式（.xlsx）：包含两个工作表
-    - "失败文件列表"：包含所有失败文件的详细信息（文件名、路径、错误信息、模型响应）
-    - "错误统计"：包含错误类型的统计信息
+- `paths`: 输入输出路径配置
+- `llm`: LLM API配置
+- `processing`: 文本处理参数
+- `prompts`: 提示词模板
 
-## 依赖包
+## 项目结构
 
-- pandas: 数据处理
-- python-docx: Word文档处理
-- PyPDF2: PDF文件处理
-- xlrd: Excel文件处理
-- tqdm: 进度显示
-- requests: API请求
-- tiktoken: Token计算
-- pyyaml: 配置文件处理
-- openpyxl: Excel文件处理
-
-## 注意事项
-
-1. 确保输入目录存在并包含支持的文件
-2. 确保有足够的磁盘空间存储输出文件
-3. 对于大文件，处理时间可能较长
-4. 建议定期检查失败任务清单，及时处理失败的文件
+```
+qa_extraction/
+├── config/
+│   ├── config.yaml
+│   └── config.yaml.example
+├── src/
+│   ├── config/
+│   ├── processors/
+│   └── utils/
+├── input/
+├── output/
+├── main.py
+├── requirements.txt
+└── README.md
+```
 
 ## 错误处理
 
-程序包含完善的错误处理机制：
-- API请求失败自动重试
-- 文件读取错误记录
-- JSON解析错误处理
-- 详细的错误日志
-- 失败任务清单（支持Markdown和Excel格式）
+程序会自动处理以下情况：
+- API请求失败
+- 文件读取错误
+- JSON解析错误
+- 其他异常情况
 
-## 贡献
+所有失败的任务都会生成详细的报告，包括：
+- 失败原因
+- 错误信息
+- 模型响应（如果有）
 
-欢迎提交Issue和Pull Request！
+## 贡献指南
+
+1. Fork 项目
+2. 创建特性分支
+3. 提交更改
+4. 推送到分支
+5. 创建 Pull Request
 
 ## 许可证
 
-MIT License 
+[添加许可证信息]
+
+## 联系方式
+
+[添加联系方式] 
