@@ -2,6 +2,7 @@
 import re
 import unicodedata
 import tiktoken
+from ..config.config_loader import load_config
 
 def count_tokens(text: str, model: str = "gpt-3.5-turbo") -> int:
     """计算文本的token数量
@@ -58,23 +59,20 @@ def clean_for_excel(text) -> str:
     
     return cleaned_text
 
-def split_text(text: str, max_tokens: int = 24000) -> list:
+def split_text(text: str) -> list:
     """将长文本分割成不超过最大token数的片段
     
     Args:
         text: 要分割的文本
-        max_tokens: 每个片段的最大token数（包括系统提示词和用户提示词的token数）
-                   默认值24000的分配：
-                   - 系统提示词：约200 tokens
-                   - 用户提示词前缀：约50 tokens
-                   - 文档内容：约20000 tokens
-                   - 模型回答：约8000 tokens
-                   - 余量：约1750 tokens
-                   总计：约24000 tokens，在32768 tokens限制内
         
     Returns:
         List[str]: 分割后的文本片段列表
     """
+    # 从配置文件加载参数
+    config = load_config()
+    max_tokens = config['processing']['text_chunking']['max_tokens']
+    overlap_tokens = config['processing']['text_chunking']['overlap_tokens']
+    
     # 系统提示词
     system_prompt = """你是一个专业的文档分析助手。你的任务是：
     1. 仔细阅读提供的文档内容
@@ -149,5 +147,37 @@ def split_text(text: str, max_tokens: int = 24000) -> list:
     # 添加最后一个chunk
     if current_chunk:
         chunks.append('\n\n'.join(current_chunk))
+    
+    # 添加重叠部分
+    if len(chunks) > 1:
+        overlapped_chunks = []
+        for i in range(len(chunks)):
+            if i > 0:
+                # 获取前一个chunk的最后一部分
+                prev_chunk = chunks[i-1]
+                prev_sentences = re.split(r'([.!?。！？])', prev_chunk)
+                overlap_text = ''
+                overlap_tokens_count = 0
+                
+                # 从后向前添加句子，直到达到overlap_tokens
+                for j in range(len(prev_sentences)-1, -1, -2):
+                    if j > 0:
+                        sentence = prev_sentences[j-1] + prev_sentences[j]
+                    else:
+                        sentence = prev_sentences[j]
+                    
+                    sentence_tokens = count_tokens(sentence)
+                    if overlap_tokens_count + sentence_tokens <= overlap_tokens:
+                        overlap_text = sentence + overlap_text
+                        overlap_tokens_count += sentence_tokens
+                    else:
+                        break
+                
+                # 将重叠部分添加到当前chunk
+                overlapped_chunks.append(overlap_text + chunks[i])
+            else:
+                overlapped_chunks.append(chunks[i])
+        
+        return overlapped_chunks
     
     return chunks 
