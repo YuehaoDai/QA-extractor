@@ -421,20 +421,29 @@ def split_text(text: str, max_tokens: int = 24000) -> List[str]:
     
     return chunks
 
-def generate_qa_pairs(document_content: str, llm_client: LLMClient) -> Tuple[List[Dict[str, str]], Optional[str]]:
-    """使用LLM API生成问答对"""
+def generate_qa_pairs(document_content: str, llm_client: LLMClient, num_questions: int = 10) -> Tuple[List[Dict[str, str]], Optional[str]]:
+    """使用LLM API生成问答对
+    
+    Args:
+        document_content: 文档内容
+        llm_client: LLM客户端
+        num_questions: 需要生成的问题数量
+        
+    Returns:
+        Tuple[List[Dict[str, str]], Optional[str]]: (问答对列表, 错误信息)
+    """
     
     # 系统提示词
-    system_prompt = """你是一个专业的文档分析助手。你的任务是：
+    system_prompt = f"""你是一个专业的文档分析助手。你的任务是：
     1. 仔细阅读提供的文档内容
-    2. 提出10个与文档内容相关的重要问题
+    2. 提出{num_questions}个与文档内容相关的重要问题
     3. 对每个问题，从文档中提取相关信息作为答案
     4. 确保问题和答案都是清晰、准确且相关的
-    5. 以JSON格式返回结果，格式为：[{"question": "问题1", "answer": "答案1"}, ...]
+    5. 以JSON格式返回结果，格式为：[{{"question": "问题1", "answer": "答案1"}}, ...]
     6. 只返回JSON格式的数据，不要包含任何其他内容"""
     
     # 用户提示词
-    user_prompt = f"请分析以下文档内容并生成问答对：\n\n{document_content}"
+    user_prompt = f"请分析以下文档内容并生成{num_questions}个问答对：\n\n{document_content}"
     
     # 准备消息
     messages = [
@@ -564,7 +573,7 @@ def process_files(input_files: List[str], output_file: str):
     # 创建LLM客户端
     llm_client = LLMClient(CONFIG)
     
-    # 使用tqdm创建进度条
+    # 使用tqdm创建文件处理进度条
     for file_path in tqdm(input_files, desc="处理文件"):
         try:
             # 读取文档内容
@@ -583,10 +592,21 @@ def process_files(input_files: List[str], output_file: str):
             text_chunks = split_text(document_content)
             file_qa_pairs = []
             
-            # 处理每个文本块
-            for i, chunk in enumerate(text_chunks):
+            # 计算每个chunk需要生成的问题数量
+            total_chunks = len(text_chunks)
+            questions_per_chunk = [10 // total_chunks] * total_chunks
+            # 将剩余的问题分配给前面的chunk
+            remaining_questions = 10 % total_chunks
+            for i in range(remaining_questions):
+                questions_per_chunk[i] += 1
+            
+            # 使用tqdm创建chunk处理进度条
+            for i, (chunk, num_questions) in enumerate(tqdm(zip(text_chunks, questions_per_chunk), 
+                                                         desc=f"处理文件 {os.path.basename(file_path)} 的文本块", 
+                                                         total=len(text_chunks), 
+                                                         leave=False)):
                 # 生成问答对
-                qa_pairs, error = generate_qa_pairs(chunk, llm_client)
+                qa_pairs, error = generate_qa_pairs(chunk, llm_client, num_questions)
                 
                 if qa_pairs:
                     # 为每个问答对添加文件名和块序号
