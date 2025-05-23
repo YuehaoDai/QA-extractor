@@ -170,13 +170,12 @@ def save_failed_tasks(failed_files: list, output_dir: str):
     print(f"- Markdown文件: {failed_tasks_md}")
     print(f"- Excel文件: {failed_tasks_excel}")
 
-def process_files(input_dir: str, output_dir: str, api_url: str, config: dict) -> None:
+def process_files(input_dir: str, output_dir: str, config: dict) -> None:
     """处理目录中的所有文件
     
     Args:
         input_dir: 输入目录
         output_dir: 输出目录
-        api_url: API地址
         config: 配置信息
     """
     # 确保输出目录存在
@@ -194,7 +193,7 @@ def process_files(input_dir: str, output_dir: str, api_url: str, config: dict) -
         return
     
     # 创建LLM客户端
-    llm_client = LLMClient(config['llm'])  # 直接传入llm配置
+    llm_client = LLMClient(config['llm'])
     
     # 处理每个文件
     failed_files = []
@@ -265,10 +264,9 @@ def main():
         # 获取配置
         input_dir = config['paths']['input_dir']
         output_dir = config['paths']['output_dir']
-        api_url = config['llm']['api_url']
         
         # 处理文件
-        process_files(input_dir, output_dir, api_url, config)
+        process_files(input_dir, output_dir, config)
         
     except Exception as e:
         print(f"程序执行出错: {str(e)}")
