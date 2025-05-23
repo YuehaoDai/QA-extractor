@@ -16,16 +16,17 @@ from src.utils.text_utils import split_text
 class LLMClient:
     """LLM API客户端"""
     def __init__(self, config: dict):
-        self.api_url = config['api']['url']
-        self.timeout = config['api'].get('timeout', 30)
-        self.max_retries = config['api'].get('max_retries', 3)
+        self.api_url = config['api_url']
+        self.model_name = config['model_name']
+        self.timeout = config.get('timeout', 30)
+        self.max_retries = config.get('max_retries', 3)
         
         # 设置请求头
         self.headers = {
             "Content-Type": "application/json"
         }
-        if 'api_key' in config['api']:
-            self.headers["Authorization"] = f"Bearer {config['api']['api_key']}"
+        if 'api_key' in config and config['api_key']:
+            self.headers["Authorization"] = f"Bearer {config['api_key']}"
     
     def generate_response(self, messages: list) -> tuple:
         """生成响应
@@ -47,7 +48,10 @@ class LLMClient:
                 response = requests.post(
                     self.api_url,
                     headers=self.headers,
-                    json={"messages": messages},
+                    json={
+                        "model": self.model_name,
+                        "messages": messages
+                    },
                     timeout=self.timeout
                 )
                 
@@ -190,7 +194,7 @@ def process_files(input_dir: str, output_dir: str, api_url: str, config: dict) -
         return
     
     # 创建LLM客户端
-    llm_client = LLMClient({'api': {'url': api_url}})
+    llm_client = LLMClient(config['llm'])  # 直接传入llm配置
     
     # 处理每个文件
     failed_files = []
