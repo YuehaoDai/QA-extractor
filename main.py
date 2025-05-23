@@ -223,25 +223,54 @@ def process_files(input_dir: str, output_dir: str, config: dict) -> None:
         print(f"在 {input_dir} 中没有找到支持的文件")
         return
     
+    print(f"\n找到 {len(files)} 个文件需要处理")
+    print(f"支持的文件类型: {', '.join(config['processing']['supported_extensions'])}")
+    
     # 创建LLM客户端
-    llm_client = LLMClient(config['llm'])
+    try:
+        llm_client = LLMClient(config['llm'])
+    except Exception as e:
+        print(f"创建LLM客户端失败: {str(e)}")
+        return
     
     # 处理每个文件
     failed_files = []
     for file_path in tqdm(files, desc="处理文件"):
         try:
+            print(f"\n开始处理文件: {file_path}")
+            
             # 读取文件
-            text = read_file(file_path)
+            try:
+                text = read_file(file_path)
+                if not text:
+                    print(f"文件内容为空: {file_path}")
+                    failed_files.append((file_path, "文件内容为空", None))
+                    continue
+            except Exception as e:
+                print(f"读取文件失败: {str(e)}")
+                failed_files.append((file_path, f"读取文件失败: {str(e)}", None))
+                continue
             
             # 计算每个块的问题数量
-            total_chunks = len(split_text(text))
+            chunks = split_text(text)
+            total_chunks = len(chunks)
+            if total_chunks == 0:
+                print(f"文件分块后为空: {file_path}")
+                failed_files.append((file_path, "文件分块后为空", None))
+                continue
+                
             questions_per_file = config['processing']['questions_per_file']
             questions_per_chunk = questions_per_file // total_chunks
             remainder = questions_per_file % total_chunks
             
+            print(f"文件将被分为 {total_chunks} 个块处理")
+            print(f"每个块生成 {questions_per_chunk} 个问题")
+            if remainder > 0:
+                print(f"最后一个块额外生成 {remainder} 个问题")
+            
             # 生成问答对
             qa_pairs = []
-            for i, chunk in enumerate(tqdm(split_text(text), desc=f"处理 {os.path.basename(file_path)} 的文本块", leave=False)):
+            for i, chunk in enumerate(tqdm(chunks, desc=f"处理 {os.path.basename(file_path)} 的文本块", leave=False)):
                 # 为最后一个块分配剩余的问题
                 current_questions = questions_per_chunk + (1 if i == total_chunks - 1 and remainder > 0 else 0)
                 
@@ -264,17 +293,29 @@ def process_files(input_dir: str, output_dir: str, config: dict) -> None:
                 try:
                     # 解析返回的JSON
                     chunk_qa_pairs = json.loads(response)
+                    if not isinstance(chunk_qa_pairs, list):
+                        raise ValueError("API返回的不是问答对列表")
                     qa_pairs.extend(chunk_qa_pairs)
                 except json.JSONDecodeError as e:
                     print(f"\n解析JSON时出错: {str(e)}")
                     failed_files.append((file_path, f"JSON解析错误: {str(e)}", response))
                     continue
+                except ValueError as e:
+                    print(f"\n验证问答对格式时出错: {str(e)}")
+                    failed_files.append((file_path, f"问答对格式错误: {str(e)}", response))
+                    continue
             
             if qa_pairs:
                 # 保存结果
                 output_file = os.path.join(output_dir, f"{os.path.splitext(os.path.basename(file_path))[0]}_qa.csv")
-                save_qa_pairs(qa_pairs, output_file)
+                try:
+                    save_qa_pairs(qa_pairs, output_file)
+                    print(f"成功保存 {len(qa_pairs)} 个问答对到: {output_file}")
+                except Exception as e:
+                    print(f"保存问答对失败: {str(e)}")
+                    failed_files.append((file_path, f"保存问答对失败: {str(e)}", None))
             else:
+                print(f"未能生成任何问答对: {file_path}")
                 failed_files.append((file_path, "未能生成任何问答对", None))
             
         except Exception as e:
@@ -284,7 +325,10 @@ def process_files(input_dir: str, output_dir: str, config: dict) -> None:
     
     # 保存失败任务清单
     if failed_files:
+        print(f"\n有 {len(failed_files)} 个文件处理失败")
         save_failed_tasks(failed_files, output_dir)
+    else:
+        print("\n所有文件处理成功！")
 
 def main():
     """主函数"""
