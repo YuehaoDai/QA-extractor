@@ -7,5 +7,5 @@ openpyxl>=3.1.0
 python-docx>=0.8.11
 PyYAML>=6.0
 PyPDF2>=3.0.0
-xlrd>=2.0.1
+xlrd>=2.0.1 
 tiktoken>=0.5.0 

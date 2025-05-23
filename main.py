@@ -10,7 +10,6 @@ from tqdm import tqdm
 import pandas as pd
 from src.config.config_loader import load_config
 from src.processors.file_processor import read_file, save_qa_pairs
-from src.processors.qa_processor import generate_qa_pairs
 from src.utils.text_utils import split_text
 
 class LLMClient:

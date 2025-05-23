@@ -2,6 +2,7 @@
 file/
 input/
 output/
+.zip
 
 # Python相关
 __pycache__/
