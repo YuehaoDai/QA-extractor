@@ -27,6 +27,14 @@ class LLMClient:
         }
         if 'api_key' in config and config['api_key']:
             self.headers["Authorization"] = f"Bearer {config['api_key']}"
+        
+        # 打印配置信息（调试用）
+        print(f"\nAPI配置信息:")
+        print(f"- API地址: {self.api_url}")
+        print(f"- 模型名称: {self.model_name}")
+        print(f"- 超时时间: {self.timeout}秒")
+        print(f"- 最大重试次数: {self.max_retries}")
+        print(f"- 是否使用API密钥: {'是' if 'api_key' in config and config['api_key'] else '否'}\n")
     
     def generate_response(self, messages: list) -> tuple:
         """生成响应
@@ -45,6 +53,12 @@ class LLMClient:
                     print(f"第 {attempt + 1} 次重试，等待 {delay} 秒...")
                     time.sleep(delay)
                 
+                # 打印请求信息（调试用）
+                print(f"\n发送API请求:")
+                print(f"- URL: {self.api_url}")
+                print(f"- 模型: {self.model_name}")
+                print(f"- 消息数量: {len(messages)}")
+                
                 response = requests.post(
                     self.api_url,
                     headers=self.headers,
@@ -57,8 +71,24 @@ class LLMClient:
                 
                 # 处理不同的HTTP状态码
                 if response.status_code == 200:
-                    result = response.json()
-                    return result['response'], None
+                    try:
+                        result = response.json()
+                        if 'response' in result:
+                            return result['response'], None
+                        elif 'choices' in result and len(result['choices']) > 0:
+                            return result['choices'][0]['message']['content'], None
+                        else:
+                            error_msg = f"API响应格式错误: {result}"
+                            print(error_msg)
+                            if attempt < self.max_retries - 1:
+                                continue
+                            return None, error_msg
+                    except json.JSONDecodeError as e:
+                        error_msg = f"解析API响应JSON失败: {str(e)}"
+                        print(error_msg)
+                        if attempt < self.max_retries - 1:
+                            continue
+                        return None, error_msg
                 elif response.status_code == 502:
                     error_msg = f"服务器暂时不可用 (502)，正在进行第 {attempt + 1} 次重试"
                     print(error_msg)
@@ -79,6 +109,7 @@ class LLMClient:
                     return None, error_msg
                 else:
                     error_msg = f"API请求失败: HTTP {response.status_code} - {response.text}"
+                    print(error_msg)
                     if attempt < self.max_retries - 1:
                         continue
                     return None, error_msg
